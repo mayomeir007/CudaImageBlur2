@@ -1,0 +1,10 @@
+when ran
+prompt will say: 
+The CPU and GPU are ready to race. The are going to apply gaussian blur on image  ".../.jpg", percent: #
+And they are off!
+
+GPU finished. Execution time ... seconds
+if using CPU not done yet. ssay: CPU is still running...
+CPU finished. execution time ... seconds.
+
+GPU performed the image blurr ... times faster!
