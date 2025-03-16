@@ -94,7 +94,7 @@ void VerticalBlur(Mat& image, Mat& blurredImage, int radius, float sigma)
 	}
 }
 
-void blurImageCPU(const char* input, float blurPercent, float* time)
+void blurImageCPU(const char* input, float blurPercent, float* time, Mat* blurredImage)
 {
 	Mat image;
 	image = imread(input, CV_LOAD_IMAGE_COLOR);
@@ -104,25 +104,24 @@ void blurImageCPU(const char* input, float blurPercent, float* time)
 	Mat temp(image.rows, image.cols, image.type());
 	temp.setTo(0);
 	int bradiusVerti = int(blurFactor * image.rows / 2);
-	Mat blurredImage(image.rows, image.cols, image.type());
-	blurredImage.setTo(0);
+	//blurredImage = new Mat(image.rows, image.cols, image.type());
+	blurredImage->create(image.rows, image.cols, image.type());
+
+	blurredImage->setTo(0);
 
 	auto cpu_start = high_resolution_clock::now();
 	HorizontalBlur(image, temp, bradiusHori, bradiusHori * .3f);
-	VerticalBlur(temp, blurredImage, bradiusVerti, bradiusVerti * .3f);
+	VerticalBlur(temp, *blurredImage, bradiusVerti, bradiusVerti * .3f);
 	auto cpu_end = high_resolution_clock::now();
-	namedWindow("CPU Display Window", WINDOW_NORMAL | WINDOW_KEEPRATIO);
-	imshow("CPU Display Window", blurredImage);
+	//namedWindow("CPU Display Window", WINDOW_NORMAL | WINDOW_KEEPRATIO);
+	//imshow("CPU Display Window", blurredImage);
 
 	//pass time to 'time' and display message 
 	auto duration = duration_cast<microseconds>(cpu_end - cpu_start);
 	*time = duration.count() / 1000000.f;
 	std::cout << "CPU finished. execution time " << *time << "  seconds." << std::endl;
-	waitKey();
+	//waitKey();
 }
-
-
-//TODO waitkey in the right place - remove waitkey from the threads, threads will fill a value stored in the heap of type 'Mat'. main thread will call the two 'imshow' functions.
 
 __global__ void horizontal_blur(uchar* img, uchar* temp, int depth, int nx, int ny, double* kernel, int radius)
 {
@@ -152,6 +151,7 @@ __global__ void horizontal_blur(uchar* img, uchar* temp, int depth, int nx, int 
 		}
 	}
 }
+
 __global__ void vertical_blur(uchar* img, uchar* temp, int depth, int nx, int ny, double* kernel, int radius)
 {
 	int ix = blockIdx.x * blockDim.x + threadIdx.x;
@@ -208,12 +208,13 @@ double* getGaussianKernel(int radius, float sigma)
 	return CUDAkernel;
 }
 
-void blurImageGPU(const char* input, float blurPercent, float* time)
+void blurImageGPU(const char* input, float blurPercent, float* time, Mat* blurredImage)
 {
 	Mat image;
 	image = imread(input, CV_LOAD_IMAGE_COLOR);
 	float blurFactor = blurPercent / 100;
-	Mat blurredImage(image.rows, image.cols, image.type());
+	//blurredImage->rows = 5;// new Mat(image.rows, image.cols, image.type());
+	blurredImage->create(image.rows, image.cols, image.type());
 
 	int bradiusHori = int(blurFactor * image.cols / 2);
 	int bradiusVerti = int(blurFactor * image.rows / 2);
@@ -252,7 +253,7 @@ void blurImageGPU(const char* input, float blurPercent, float* time)
 	cudaDeviceSynchronize();
 
 	//copy back to cpu
-	cudaMemcpy(blurredImage.data, d_img_blur, byte_size, cudaMemcpyDeviceToHost);
+	cudaMemcpy(blurredImage->data, d_img_blur, byte_size, cudaMemcpyDeviceToHost);
 
 	cudaEventRecord(end);
 	cudaEventSynchronize(end);
@@ -268,29 +269,36 @@ void blurImageGPU(const char* input, float blurPercent, float* time)
 	cudaFree(kernelHori);
 	cudaFree(kernelVerti);
 
-	namedWindow("GPU Display Window", WINDOW_NORMAL | WINDOW_KEEPRATIO);
-	imshow("GPU Display Window", blurredImage);
-
 	*time = time_ms / 1000.f;
 
 	std::cout << "GPU finished. execution time " << *time << "  seconds." << std::endl;
-	waitKey();
 }
+
 bool CUDAImageBlur(const char* input, float blurPercent)
 {
 	//set log level of openCV to warning 
 	utils::logging::setLogLevel(utils::logging::LogLevel::LOG_LEVEL_WARNING);
 
+	//allocate in the heap the time reading and Mat for blurred image to be used by the CPU
+	float* cpu_time = new float(0);
+	Mat* blurredImage_cpu = new Mat;
+	//allocate in the heap time reading and Mat for blurred image to be used by the GPU
+	float* gpu_time = new float(0);
+	Mat* blurredImage_gpu = new Mat;
+
 	std::cout << "The CPU and GPU are ready to race. The are going to apply gaussian blur on image \"" << input << "\", percent: " << blurPercent << std::endl;
 	std::cout << "And they're off!" << std::endl;
-	float* cpu_time = new float(0);
-	std::thread cpu_thread = std::thread(blurImageCPU, input, blurPercent, cpu_time);
-	float* gpu_time = new float(0);
-	std::thread gpu_thread = std::thread(blurImageGPU, input, blurPercent, gpu_time);
+
+	std::thread cpu_thread = std::thread(blurImageCPU, input, blurPercent, cpu_time, blurredImage_cpu);
+
+	std::thread gpu_thread = std::thread(blurImageGPU, input, blurPercent, gpu_time, blurredImage_gpu);
 
 	if (gpu_thread.joinable())
 	{
 		gpu_thread.join();
+		namedWindow("GPU Display Window", WINDOW_NORMAL | WINDOW_KEEPRATIO);
+		imshow("GPU Display Window", *blurredImage_gpu); 
+		waitKey(1);
 		if (*cpu_time == 0)
 		{
 			std::cout << "CPU is still running..." << std::endl;
@@ -299,12 +307,19 @@ bool CUDAImageBlur(const char* input, float blurPercent)
 	if (cpu_thread.joinable())
 	{
 		cpu_thread.join();
+		namedWindow("CPU Display Window", WINDOW_NORMAL | WINDOW_KEEPRATIO);
+		imshow("CPU Display Window", *blurredImage_cpu);
 	}
 
 	std::cout << "GPU performed the image blurr " << *cpu_time / *gpu_time  << " times faster!" << std::endl;
 
+	waitKey();
+
+	//free data in the heap
 	delete cpu_time;
 	delete gpu_time;
+	delete blurredImage_cpu;
+	delete blurredImage_gpu;
 
 	return true;
 }
