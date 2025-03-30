@@ -9,7 +9,7 @@ using namespace cv;
 using namespace std::chrono;
 
 
-void HorizontalBlur(Mat& image, Mat& blurredImage, int radius, float sigma)
+void HorizontalBlur(const Mat& image, Mat& blurredImage, int radius, float sigma)
 {
 	// Create the horizontal Gaussian kernel
 	int kernelSize = 2 * radius + 1;
@@ -77,11 +77,11 @@ void VerticalBlur(Mat& image, Mat& blurredImage, int radius, float sigma)
 			for (int k = -radius; k <= radius; ++k) {
 				if (i + k >= 0 && i + k < image.rows)
 				{
-					blurredImage.data[i * image.cols * depth + j * depth] += float(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth]);
+					blurredImage.data[i * image.cols * depth + j * depth] += unsigned char(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth]);
 					if (depth > 1)
 					{
-						blurredImage.data[i * image.cols * depth + j * depth + 1] += float(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth + 1]);
-						blurredImage.data[i * image.cols * depth + j * depth + 2] += float(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth + 2]);
+						blurredImage.data[i * image.cols * depth + j * depth + 1] += unsigned char(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth + 1]);
+						blurredImage.data[i * image.cols * depth + j * depth + 2] += unsigned char(kernel[k + radius] * image.data[(i + k) * image.cols * depth + j * depth + 2]);
 					}
 				}
 			}
@@ -90,11 +90,11 @@ void VerticalBlur(Mat& image, Mat& blurredImage, int radius, float sigma)
 	}
 }
 
-void blurImageCPU(const char* input, float blurPercent, float* time, Mat* blurredImage)
+void blurImageCPU(const char* input, int blurPercent, float* time, Mat* blurredImage)
 {
 	Mat image;
 	image = imread(input, CV_LOAD_IMAGE_COLOR);
-	float blurFactor = blurPercent / 100;
+	float blurFactor = float(blurPercent) / 100;
 
 	int bradiusHori = int(blurFactor * image.cols / 2);
 	Mat temp(image.rows, image.cols, image.type());
@@ -119,7 +119,7 @@ void blurImageCPU(const char* input, float blurPercent, float* time, Mat* blurre
 	//waitKey();
 }
 
-__global__ void horizontal_blur(uchar* img, uchar* temp, int depth, int nx, int ny, double* kernel, int radius)
+__global__ void horizontal_blur(uchar* img, uchar* temp, int depth, int nx, int ny, const double* kernel, int radius)
 {
 	int ix = blockIdx.x * blockDim.x + threadIdx.x;
 	int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -148,7 +148,7 @@ __global__ void horizontal_blur(uchar* img, uchar* temp, int depth, int nx, int 
 	}
 }
 
-__global__ void vertical_blur(uchar* img, uchar* temp, int depth, int nx, int ny, double* kernel, int radius)
+__global__ void vertical_blur(uchar* img, uchar* temp, int depth, int nx, int ny, const double* kernel, int radius)
 {
 	int ix = blockIdx.x * blockDim.x + threadIdx.x;
 	int iy = blockIdx.y * blockDim.y + threadIdx.y;
@@ -204,11 +204,11 @@ double* getGaussianKernel(int radius, float sigma)
 	return CUDAkernel;
 }
 
-void blurImageGPU(const char* input, float blurPercent, float* time, Mat* blurredImage)
+void blurImageGPU(const char* input, int blurPercent, float* time, Mat* blurredImage)
 {
 	Mat image;
 	image = imread(input, CV_LOAD_IMAGE_COLOR);
-	float blurFactor = blurPercent / 100;
+	float blurFactor = float(blurPercent) / 100;
 	//blurredImage->rows = 5;// new Mat(image.rows, image.cols, image.type());
 	blurredImage->create(image.rows, image.cols, image.type());
 
@@ -270,7 +270,7 @@ void blurImageGPU(const char* input, float blurPercent, float* time, Mat* blurre
 	std::cout << "GPU finished. execution time " << *time << "  seconds." << std::endl;
 }
 
-bool CUDAImageBlur(const char* input, float blurPercent)
+bool CUDAImageBlur(const char* input, int blurPercent)
 {
 	//set log level of openCV to warning 
 	utils::logging::setLogLevel(utils::logging::LogLevel::LOG_LEVEL_WARNING);
