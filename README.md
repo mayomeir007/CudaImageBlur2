@@ -5,3 +5,5 @@ for your corresponding platform. For system requirements and installation instru
 
 ### Description
 This is CUDA console application that accepts a path to an image, and blur percent. With this input, it performes a two-pass guassian blur on the image on both the CPU and the GPU, then compares the time each method took. The GPU's performance time compared to the CPU's performance time decreases with image size and blur percent. Try it out for yourself.
+![Mona_blur](https://github.com/user-attachments/assets/505b7f68-006b-4e63-8fff-35a9f7b4964a)
+The displayed image is of of mona lisa blurred. The orginial image is the image 'Mona_Lisa,_by_Leonardo_da_Vinci,_from_C2RMF_retouched.jpg.webp' from the website 'https://en.wikipedia.org/wiki/Mona_Lisa'
