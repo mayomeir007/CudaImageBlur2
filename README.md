@@ -1,6 +1,6 @@
 ### Prerequisites
 1) [OpenCV 3.0](https://sourceforge.net/projects/opencvlibrary/files/4.5.2/): Download and run 'opencv-4.5.2-vc14_vc15.exe'. 
-2) Download and install the [CUDA toolkit 12.4](https://developer.nvidia.com/cuda-12-4-0-download-archive)
+2) Download and install the [CUDA toolkit 12.9](https://developer.nvidia.com/cuda-12-9-0-download-archive)
 for your corresponding platform. For system requirements and installation instructions of cuda toolkit, please refer to the [Windows Installation Guide](http://docs.nvidia.com/cuda/cuda-installation-guide-microsoft-windows/index.html).
 
 ### Description
